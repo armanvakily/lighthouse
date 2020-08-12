@@ -48,7 +48,7 @@ function hasBeenRecentlyScraped(library) {
   if (!database[library]) return false;
 
   const lastScraped = database[library].lastScraped;
-  if (!database[library] || lastScraped === 'Error') return false;
+  if (lastScraped === 'Error') return false;
 
   return (Date.now() - lastScraped) / (1000 * 60 * 60) < 1;
 }
@@ -146,23 +146,27 @@ async function collectLibraryStats(library, index, numVersionsToFetchLimit) {
   console.log(`Collecting ${totalLibraries} libraries...`);
 
   // Fetch up to 10 versions of the large libraries
+  let foundError = false;
   for (let i = 0; i < largeLibraries.length; i++) {
     try {
       await collectLibraryStats(largeLibraries[i], i + 1, 10);
-    } catch (e) {
-      console.log('Exiting early...\n');
+    } catch (err) {
+      console.log(`Exiting early...\n | {err}`);
+      foundError = true;
       break;
     }
   }
 
   // Fetch only the latest version of the suggested libraries
-  for (let i = 0; i < suggestedLibraries.length; i++) {
-    try {
-      const index = i + 1 + largeLibraries.length;
-      await collectLibraryStats(suggestedLibraries[i], index, 1);
-    } catch (e) {
-      console.log('Exiting early...\n');
-      break;
+  if (!foundError) {
+    for (let i = 0; i < suggestedLibraries.length; i++) {
+      try {
+        const index = i + 1 + largeLibraries.length;
+        await collectLibraryStats(suggestedLibraries[i], index, 1);
+      } catch (err) {
+        console.log(`Exiting early...\n | {err}`);
+        break;
+      }
     }
   }
 
