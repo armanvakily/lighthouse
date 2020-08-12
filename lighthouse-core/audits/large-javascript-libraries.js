@@ -70,7 +70,9 @@ class LargeJavascriptLibraries extends Audit {
 
     for (const detectedLib of detectedLibs) {
       if (!detectedLib.npm || !libStats[detectedLib.npm]) continue;
-      const suggestions = librarySuggestions[detectedLib.npm] || [];
+
+      const suggestions = librarySuggestions[detectedLib.npm];
+      if (!suggestions) continue;
 
       if (seenLibraries.has(detectedLib.npm)) continue;
       seenLibraries.add(detectedLib.npm);
@@ -154,9 +156,7 @@ class LargeJavascriptLibraries extends Audit {
     return {
       score: libraryPairings.length > 0 ? 0 : 1,
       displayValue,
-      details: {
-        ...details,
-      },
+      details,
     };
   }
 }

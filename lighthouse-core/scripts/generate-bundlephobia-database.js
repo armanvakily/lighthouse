@@ -23,12 +23,11 @@ const suggestionsJSON = require('../lib/large-javascript-libraries/library-sugge
 
 
 /** @type {string[]} */
-let largeLibraries = [];
-largeLibraries = largeLibraries.concat(...Object.keys(suggestionsJSON));
+const largeLibraries = Object.keys(suggestionsJSON);
 
 /** @type {string[]} */
-let suggestedLibraries = [];
-suggestedLibraries = suggestedLibraries.concat(...Object.values(suggestionsJSON));
+const suggestedLibraries = Object.values(
+  suggestionsJSON).reduce((arr, lib) => arr.concat(lib), []);
 
 const totalLibraries = largeLibraries.length + suggestedLibraries.length;
 
@@ -76,69 +75,64 @@ function validateLibraryObject(library) {
  * @param {number} numVersionsToFetchLimit
  */
 async function collectLibraryStats(library, index, numVersionsToFetchLimit) {
-  return new Promise(async (resolve, reject) => {
-    console.log(`\n◉ (${index}/${totalLibraries}) ${library} `);
+  console.log(`\n◉ (${index}/${totalLibraries}) ${library} `);
 
-    if (hasBeenRecentlyScraped(library)) {
-      console.log(`   ❕ Skipping`);
-      resolve();
-      return;
+  if (hasBeenRecentlyScraped(library)) {
+    console.log(`   ❕ Skipping`);
+    return;
+  }
+
+  /** @type {Array<BundlePhobiaLibrary>} */
+  const libraries = [];
+  /** @type {'Error'|number} */
+  let lastScraped = Date.now();
+
+  const versions = await getPackageVersionList(library, numVersionsToFetchLimit);
+  for (const version of versions) {
+    try {
+      const libraryJSON = await fetchPackageStats(version);
+      if (validateLibraryObject(libraryJSON)) libraries.push(libraryJSON);
+    } catch (e) {
+      console.log(`   ❌ Failed to fetch stats | ${version}`);
+      lastScraped = 'Error';
+    }
+  }
+
+  for (let index = 0; index < libraries.length; index++) {
+    const library = libraries[index];
+
+    if (index === 0) {
+      database[library.name] = {
+        repository: library.repository,
+        lastScraped,
+        versions: {},
+      };
     }
 
-    /** @type {Array<BundlePhobiaLibrary>} */
-    const libraries = [];
-    /** @type {'Error'|number} */
-    let lastScraped = Date.now();
+    database[library.name] = {
+      ...database[library.name],
+      versions: {
+        ...database[library.name].versions,
+        [library.version]: {
+          gzip: library.gzip,
+        },
+      },
+    };
 
-    const versions = await getPackageVersionList(library, numVersionsToFetchLimit);
-    for (const version of versions) {
-      try {
-        const libraryJSON = await fetchPackageStats(version);
-        if (validateLibraryObject(libraryJSON)) libraries.push(libraryJSON);
-      } catch (e) {
-        console.log(`   ❌ Failed to fetch stats | ${version}`);
-        lastScraped = 'Error';
-      }
+    if (index === 0) {
+      database[library.name].versions['latest'] =
+          database[library.name].versions[library.version];
     }
 
-    for (let index = 0; index < libraries.length; index++) {
-      const library = libraries[index];
-
-      if (index === 0) {
-        database[library.name] = {
-          repository: library.repository,
-          lastScraped,
-          versions: {},
-        };
-      }
-
+    if (lastScraped === 'Error') {
       database[library.name] = {
         ...database[library.name],
-        versions: {
-          ...database[library.name].versions,
-          [library.version]: {
-            gzip: library.gzip,
-          },
-        },
+        lastScraped,
       };
-
-      if (index === 0) {
-        database[library.name].versions['latest'] =
-          database[library.name].versions[library.version];
-      }
-
-      if (lastScraped === 'Error') {
-        database[library.name] = {
-          ...database[library.name],
-          lastScraped,
-        };
-      }
-
-      console.log(`   ✔ ${library.version}` + (index === 0 ? ' (latest)' : ''));
     }
 
-    resolve();
-  });
+    console.log(`   ✔ ${library.version}` + (index === 0 ? ' (latest)' : ''));
+  }
 }
 
 (async () => {
