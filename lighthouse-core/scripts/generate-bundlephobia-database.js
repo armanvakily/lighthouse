@@ -4,6 +4,13 @@
  * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
  */
 
+/**
+ * @fileoverview This script generates a database of library statistics required for
+ * the large-javascript-libraries audit. The data is scraped from BundlePhobia and
+ * includes things like the library transfer size, and GitHub URL for each version of
+ * a library. This script must be run ever so often to keep the database up-to-date.
+ */
+
 'use strict';
 
 /* eslint-disable no-console */
